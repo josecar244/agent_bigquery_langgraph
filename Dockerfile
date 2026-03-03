@@ -24,17 +24,8 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8501
 
-# 5. Script de inicio para manejar credenciales de Google en plataformas PaaS como Render
-# Genera el archivo .json a partir de una variable de entorno inyectada desde el panel
-RUN echo '#!/bin/bash\n\
-    if [ -n "$GOOGLE_CREDENTIALS_JSON" ]; then\n\
-    echo "$GOOGLE_CREDENTIALS_JSON" > /app/google_credentials.json\n\
-    export GOOGLE_APPLICATION_CREDENTIALS="/app/google_credentials.json"\n\
-    else\n\
-    echo "⚠️ Advertencia: GOOGLE_CREDENTIALS_JSON no está definida en el entorno."\n\
-    fi\n\
-    exec streamlit run main.py\n\
-    ' > /app/start.sh && chmod +x /app/start.sh
+# 5. Script de inicio simplificado
+RUN echo '#!/bin/bash\nexec streamlit run main.py' > /app/start.sh && chmod +x /app/start.sh
 
 # 6. Ejecutar el script
 ENTRYPOINT ["/app/start.sh"]
