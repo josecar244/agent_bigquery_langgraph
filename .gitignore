@@ -1,0 +1,19 @@
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Variables de entorno
+.env
+
+# Credenciales de Google Cloud (¡NUNCA SUBIR A GITHUB!)
+*.json
+proyecto-ai-13-agent-bqjc244-e592c6c86e0d.json
+
+# Logs y otros
+*.log
+.DS_Store

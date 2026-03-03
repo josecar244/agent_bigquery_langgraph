@@ -1,0 +1,11 @@
+# Este comando solo se instala si tienes python 3.11
+pip install -U "langgraph-cli[inmem]"
+
+# Corre el siguiente comando
+langgraph dev --allow-blocking
+
+
+# Comandos para desplegar en DigitalOcean
+- docker login
+
+- docker buildx build --platform linux/amd64 -t kevininofuentecolque/app-langgraph-agent-big-query-v1:latest --push .
