@@ -24,7 +24,11 @@ st.set_page_config(
 # ESTILOS PERSONALIZADOS
 # ============================================
 
-st.markdown("""
+# ============================================
+# ESTILOS PERSONALIZADOS (Injectamos CSS con st.html)
+# ============================================
+
+st.html("""
 <style>
     .main-header {
         font-size: 2.5rem;
@@ -40,10 +44,10 @@ st.markdown("""
         margin-bottom: 2rem;
     }
     .stChatMessage {
-        background-color: #f0f2f6;
-        border-radius: 10px;
-        padding: 1rem;
-        margin: 0.5rem 0;
+        background-color: #f2f2f2 !important;
+        border-radius: 10px !important;
+        padding: 1rem !important;
+        margin: 0.5rem 0 !important;
     }
     .success-box {
         padding: 1rem;
@@ -60,7 +64,7 @@ st.markdown("""
         margin: 1rem 0;
     }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 # ============================================
 # SIDEBAR - INFORMACIÓN Y EJEMPLOS
@@ -120,8 +124,8 @@ with st.sidebar:
 # HEADER PRINCIPAL
 # ============================================
 
-st.markdown('<p class="main-header">🚴 Agente Analista de CitiBike NYC</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Pregúntame cualquier cosa sobre los datos de viajes de CitiBike</p>', unsafe_allow_html=True)
+st.html('<p class="main-header">🚴 Agente Analista de CitiBike NYC</p>')
+st.html('<p class="sub-header">Pregúntame cualquier cosa sobre los datos de viajes de CitiBike</p>')
 
 # ============================================
 # INICIALIZAR SESSION STATE

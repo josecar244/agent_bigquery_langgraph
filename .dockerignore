@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.env
+*.json
+!google_credentials.json
+.vscode/
+.idea/
+.DS_Store
