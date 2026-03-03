@@ -1,16 +1,15 @@
 # tools/run_sql_query.py
 
+import os
 from sqlalchemy import create_engine, text
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 import pandas as pd
 from langchain_core.tools import tool
 
-# --- Configuración de conexión a BigQuery ---
-# Reemplaza con tu propio ID de proyecto de Google Cloud
-TU_PROYECTO_GCP_ID = "proyecto-ai-13-agent-bqjc244" #****************************************************************************************
+# Reemplaza con tu propio ID de proyecto de Google Cloud o léelo del entorno
+TU_PROYECTO_GCP_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "proyecto-ai-13-agent-bqjc244")
 # URI de conexión que indica a SQLAlchemy usar BigQuery y la tabla pública de CitiBike
-# bigquery://<dataset>/<table>
 db_uri = "bigquery://bigquery-public-data/new_york_citibike"
 
 # Variable global para el engine (lazy loading)
@@ -18,37 +17,29 @@ _engine = None
 
 def get_bigquery_connection():
     """
-    Inicializa el cliente de BigQuery con nuestro proyecto.
-    Soporta autenticación via:
-    1. Variable de entorno GOOGLE_APPLICATION_CREDENTIALS (Service Account JSON)
-    2. gcloud auth application-default login (credenciales de usuario)
+    Inicializa el cliente de BigQuery de forma robusta.
+    Prioriza:
+    1. Variable GOOGLE_CREDENTIALS_JSON (contenido directo)
+    2. Variable GOOGLE_APPLICATION_CREDENTIALS (ruta a archivo)
     """
     import os
-    from pathlib import Path
+    import json
+    from google.oauth2 import service_account
     
-    # Si hay un archivo de credenciales especificado
-    credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+    json_creds = os.getenv('GOOGLE_CREDENTIALS_JSON')
     
-    if credentials_path:
-        # Si es ruta relativa, convertirla a absoluta basada en la ubicación del proyecto
-        if not os.path.isabs(credentials_path):
-            # Obtener la raíz del proyecto (donde está main.py)
-            project_root = Path(__file__).parent.parent
-            credentials_path = project_root / credentials_path
-            credentials_path = str(credentials_path.resolve())
-            
-            # Establecer la variable de entorno con la ruta absoluta
-            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
-        
-        # Verificar que el archivo existe
-        if not os.path.exists(credentials_path):
-            raise FileNotFoundError(
-                f"Archivo de credenciales no encontrado: {credentials_path}\n"
-                f"Verifica que GOOGLE_APPLICATION_CREDENTIALS apunte a un archivo válido."
-            )
-    
-    # Crear cliente de BigQuery (usará las credenciales configuradas)
-    client = bigquery.Client(project=TU_PROYECTO_GCP_ID)
+    if json_creds:
+        print("DEBUG: Usando credenciales desde GOOGLE_CREDENTIALS_JSON directamente.")
+        try:
+            info = json.loads(json_creds)
+            credentials = service_account.Credentials.from_service_account_info(info)
+            client = bigquery.Client(project=TU_PROYECTO_GCP_ID, credentials=credentials)
+        except Exception as e:
+            print(f"DEBUG: Error al procesar GOOGLE_CREDENTIALS_JSON: {e}")
+            client = bigquery.Client(project=TU_PROYECTO_GCP_ID)
+    else:
+        print("DEBUG: Usando credenciales desde archivo (vía env var).")
+        client = bigquery.Client(project=TU_PROYECTO_GCP_ID)
     
     # Creamos y devolvemos la conexión DB-API compatible con SQLAlchemy
     connection = dbapi.connect(client=client)
@@ -57,7 +48,6 @@ def get_bigquery_connection():
 def get_engine():
     """
     Obtiene el engine de SQLAlchemy, creándolo solo si es necesario (lazy loading).
-    Esto evita errores de credenciales durante la importación del módulo.
     """
     global _engine
     if _engine is None:
@@ -81,6 +71,7 @@ def run_sql_query_langchain(query: str) -> str:
         El resultado de la consulta como una tabla de texto (Markdown) o un mensaje de error.
     """
     try:
+        print(f"DEBUG: Ejecutando consulta SQL: {query}")
         # Obtener el engine (lazy loading)
         engine = get_engine()
         with engine.connect() as connection:
@@ -90,6 +81,8 @@ def run_sql_query_langchain(query: str) -> str:
             # Convertimos el resultado a un DataFrame de Pandas para un formato bonito
             df = pd.DataFrame(result_proxy.fetchall(), columns=result_proxy.keys())
             
+            print(f"DEBUG: Consulta exitosa. Filas obtenidas: {len(df)}")
+            
             # Si el DataFrame está vacío, devuelve un mensaje
             if df.empty:
                 return "La consulta se ejecutó correctamente, pero no devolvió resultados."
@@ -98,5 +91,6 @@ def run_sql_query_langchain(query: str) -> str:
             return df.to_markdown(index=False)
 
     except Exception as e:
+        print(f"DEBUG: ERROR en BigQuery: {str(e)}")
         # Si hay un error de SQL, devuélvelo para que el agente pueda intentar corregirlo.
         return f"Error al ejecutar la consulta: {e}"
