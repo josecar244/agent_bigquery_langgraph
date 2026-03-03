@@ -175,13 +175,8 @@ app = workflow.compile()
 def run_agent(query: str):
     """
     Ejecuta el agente con una consulta del usuario
-    
-    Args:
-        query: Pregunta del usuario en lenguaje natural
-        
-    Returns:
-        La respuesta final del agente
     """
+    print(f"DEBUG: run_agent llamado con query: {query}", flush=True)
     
     # Crear el mensaje inicial con el system instruction y la pregunta del usuario
     # Gemini soporta SystemMessage
