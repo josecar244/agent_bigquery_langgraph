@@ -8,46 +8,46 @@ import pandas as pd
 import sys
 from langchain_core.tools import tool
 
+import tempfile
+import json
+
 # Reemplaza con tu propio ID de proyecto de Google Cloud o léelo del entorno
 TU_PROYECTO_GCP_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "proyecto-ai-13-agent-bqjc244")
 # URI de conexión que indica a SQLAlchemy usar BigQuery y la tabla pública de CitiBike
 db_uri = "bigquery://bigquery-public-data/new_york_citibike"
+
+# --- LÓGICA DE CREDENCIALES (UTS 2026) ---
+# Creamos un archivo temporal para que el SDK de Google lo encuentre automáticamente
+json_creds = os.getenv('GOOGLE_CREDENTIALS_JSON')
+if json_creds:
+    try:
+        print("DEBUG: Detectada GOOGLE_CREDENTIALS_JSON. Creando archivo temporal...", file=sys.stderr, flush=True)
+        # Limpieza básica
+        json_creds = json_creds.strip()
+        # Verificar que es JSON válido
+        json.loads(json_creds) 
+        
+        # Crear archivo temporal persistente durante la ejecución
+        temp_creds = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        temp_creds.write(json_creds)
+        temp_creds.close()
+        
+        # Configurar la variable que Google busca por defecto
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_creds.name
+        print(f"DEBUG: GOOGLE_APPLICATION_CREDENTIALS configurada en: {temp_creds.name}", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"DEBUG: Error crítico configurando credenciales: {e}", file=sys.stderr, flush=True)
 
 # Variable global para el engine (lazy loading)
 _engine = None
 
 def get_bigquery_connection():
     """
-    Inicializa el cliente de BigQuery de forma robusta.
-    Prioriza:
-    1. Variable GOOGLE_CREDENTIALS_JSON (contenido directo)
-    2. Variable GOOGLE_APPLICATION_CREDENTIALS (ruta a archivo)
+    Inicializa el cliente de BigQuery con el proyecto correcto.
+    Ya debería tener GOOGLE_APPLICATION_CREDENTIALS configurada.
     """
-    import os
-    import json
-    from google.oauth2 import service_account
-    
-    json_creds = os.getenv('GOOGLE_CREDENTIALS_JSON')
-    
-    if json_creds:
-        print("DEBUG: Usando credenciales desde GOOGLE_CREDENTIALS_JSON directamente.", flush=True)
-        try:
-            # Limpiar posibles carácteres invisibles
-            json_creds = json_creds.strip()
-            info = json.loads(json_creds)
-            print(f"DEBUG: JSON cargado correctamente. Email: {info.get('client_email')}", flush=True)
-            credentials = service_account.Credentials.from_service_account_info(info)
-            client = bigquery.Client(project=TU_PROYECTO_GCP_ID, credentials=credentials)
-        except Exception as e:
-            print(f"DEBUG: Error al procesar GOOGLE_CREDENTIALS_JSON: {e}", file=sys.stderr, flush=True)
-            client = bigquery.Client(project=TU_PROYECTO_GCP_ID)
-    else:
-        print("DEBUG: Usando credenciales desde archivo (vía env var).", flush=True)
-        client = bigquery.Client(project=TU_PROYECTO_GCP_ID)
-    
-    # Creamos y devolvemos la conexión DB-API compatible con SQLAlchemy
-    connection = dbapi.connect(client=client)
-    return connection
+    client = bigquery.Client(project=TU_PROYECTO_GCP_ID)
+    return dbapi.connect(client=client)
 
 def get_engine():
     """
