@@ -16,45 +16,32 @@ TU_PROYECTO_GCP_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "proyecto-ai-13-agent-bqj
 # URI de conexión que indica a SQLAlchemy usar BigQuery y la tabla pública de CitiBike
 db_uri = "bigquery://bigquery-public-data/new_york_citibike"
 
-# --- LÓGICA DE CREDENCIALES (UTS 2026 - DIAGNÓSTICO) ---
+# --- LÓGICA DE CREDENCIALES (PRODUCCIÓN) ---
 def initialize_credentials():
+    """Configura las credenciales de GCP usando un archivo temporal seguro."""
     json_creds = os.getenv('GOOGLE_CREDENTIALS_JSON')
-    print(f"DEBUG: Verificando GOOGLE_CREDENTIALS_JSON... Presencia: {json_creds is not None}", file=sys.stderr, flush=True)
-    
     if not json_creds:
-        print("DEBUG: ADVERTENCIA - GOOGLE_CREDENTIALS_JSON está vacía o no existe.", file=sys.stderr, flush=True)
         return
 
-    print(f"DEBUG: GOOGLE_CREDENTIALS_JSON detectada (Longitud: {len(json_creds)}). Cargando...", file=sys.stderr, flush=True)
     try:
-        # Limpieza robusta
         json_creds = json_creds.strip()
-        # Verificar integridad
-        creds_dict = json.loads(json_creds) 
-        print(f"DEBUG: JSON validado. Proyecto: {creds_dict.get('project_id')}. Email: {creds_dict.get('client_email')}", file=sys.stderr, flush=True)
-        
-        # Crear archivo temporal
+        # Crear archivo temporal para el SDK
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
             tmp.write(json_creds)
             temp_path = tmp.name
         
-        # Configurar variable crucial para el SDK
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_path
-        print(f"DEBUG: Puente establecido: GOOGLE_APPLICATION_CREDENTIALS -> {temp_path}", file=sys.stderr, flush=True)
     except Exception as e:
-        print(f"DEBUG: ERROR CRÍTICO configurando credenciales: {str(e)}", file=sys.stderr, flush=True)
+        print(f"Error inicializando credenciales: {e}", file=sys.stderr)
 
-# Ejecutar inmediatamente al importar el módulo
+# Inicialización automática
 initialize_credentials()
 
-# Variable global para el engine (lazy loading)
+# Variable global para el engine
 _engine = None
 
 def get_bigquery_connection():
-    """
-    Inicializa el cliente de BigQuery con el proyecto correcto.
-    Ya debería tener GOOGLE_APPLICATION_CREDENTIALS configurada.
-    """
+    """Conecta a BigQuery usando las credenciales configuradas."""
     client = bigquery.Client(project=TU_PROYECTO_GCP_ID)
     return dbapi.connect(client=client)
 
@@ -84,26 +71,16 @@ def run_sql_query_langchain(query: str) -> str:
         El resultado de la consulta como una tabla de texto (Markdown) o un mensaje de error.
     """
     try:
-        print(f"DEBUG: Ejecutando consulta SQL: {query}", flush=True)
-        # Obtener el engine (lazy loading)
+        # Ejecutar consulta a través del engine de SQLAlchemy
         engine = get_engine()
         with engine.connect() as connection:
-            # Usamos text() para asegurar que SQLAlchemy trate el string como SQL literal
             result_proxy = connection.execute(text(query))
-            
-            # Convertimos el resultado a un DataFrame de Pandas para un formato bonito
             df = pd.DataFrame(result_proxy.fetchall(), columns=result_proxy.keys())
             
-            print(f"DEBUG: Consulta exitosa. Filas obtenidas: {len(df)}", flush=True)
-            
-            # Si el DataFrame está vacío, devuelve un mensaje
             if df.empty:
                 return "La consulta se ejecutó correctamente, pero no devolvió resultados."
             
-            # Convertimos el DataFrame a un string (Markdown) para que el LLM lo pueda leer
             return df.to_markdown(index=False)
 
     except Exception as e:
-        print(f"DEBUG: ERROR en BigQuery: {str(e)}", file=sys.stderr, flush=True)
-        # Si hay un error de SQL, devuélvelo para que el agente pueda intentar corregirlo.
-        return f"Error al ejecutar la consulta: {e}"
+        return f"Error en la consulta de base de datos: {e}"

@@ -176,7 +176,6 @@ def run_agent(query: str):
     """
     Ejecuta el agente con una consulta del usuario
     """
-    print(f"DEBUG: run_agent llamado con query: {query}", flush=True)
     
     # Crear el mensaje inicial con el system instruction y la pregunta del usuario
     # Gemini soporta SystemMessage
