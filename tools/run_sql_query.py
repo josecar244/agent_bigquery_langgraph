@@ -16,27 +16,36 @@ TU_PROYECTO_GCP_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "proyecto-ai-13-agent-bqj
 # URI de conexión que indica a SQLAlchemy usar BigQuery y la tabla pública de CitiBike
 db_uri = "bigquery://bigquery-public-data/new_york_citibike"
 
-# --- LÓGICA DE CREDENCIALES (UTS 2026) ---
-# Creamos un archivo temporal para que el SDK de Google lo encuentre automáticamente
-json_creds = os.getenv('GOOGLE_CREDENTIALS_JSON')
-if json_creds:
+# --- LÓGICA DE CREDENCIALES (UTS 2026 - DIAGNÓSTICO) ---
+def initialize_credentials():
+    json_creds = os.getenv('GOOGLE_CREDENTIALS_JSON')
+    print(f"DEBUG: Verificando GOOGLE_CREDENTIALS_JSON... Presencia: {json_creds is not None}", file=sys.stderr, flush=True)
+    
+    if not json_creds:
+        print("DEBUG: ADVERTENCIA - GOOGLE_CREDENTIALS_JSON está vacía o no existe.", file=sys.stderr, flush=True)
+        return
+
+    print(f"DEBUG: GOOGLE_CREDENTIALS_JSON detectada (Longitud: {len(json_creds)}). Cargando...", file=sys.stderr, flush=True)
     try:
-        print("DEBUG: Detectada GOOGLE_CREDENTIALS_JSON. Creando archivo temporal...", file=sys.stderr, flush=True)
-        # Limpieza básica
+        # Limpieza robusta
         json_creds = json_creds.strip()
-        # Verificar que es JSON válido
-        json.loads(json_creds) 
+        # Verificar integridad
+        creds_dict = json.loads(json_creds) 
+        print(f"DEBUG: JSON validado. Proyecto: {creds_dict.get('project_id')}. Email: {creds_dict.get('client_email')}", file=sys.stderr, flush=True)
         
-        # Crear archivo temporal persistente durante la ejecución
-        temp_creds = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
-        temp_creds.write(json_creds)
-        temp_creds.close()
+        # Crear archivo temporal
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
+            tmp.write(json_creds)
+            temp_path = tmp.name
         
-        # Configurar la variable que Google busca por defecto
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_creds.name
-        print(f"DEBUG: GOOGLE_APPLICATION_CREDENTIALS configurada en: {temp_creds.name}", file=sys.stderr, flush=True)
+        # Configurar variable crucial para el SDK
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_path
+        print(f"DEBUG: Puente establecido: GOOGLE_APPLICATION_CREDENTIALS -> {temp_path}", file=sys.stderr, flush=True)
     except Exception as e:
-        print(f"DEBUG: Error crítico configurando credenciales: {e}", file=sys.stderr, flush=True)
+        print(f"DEBUG: ERROR CRÍTICO configurando credenciales: {str(e)}", file=sys.stderr, flush=True)
+
+# Ejecutar inmediatamente al importar el módulo
+initialize_credentials()
 
 # Variable global para el engine (lazy loading)
 _engine = None
